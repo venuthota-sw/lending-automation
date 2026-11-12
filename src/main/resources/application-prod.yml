@@ -1,0 +1,18 @@
+# PROD environment overrides — loaded automatically when spring.profiles.active=prod
+# All values here override the common settings in application.yml.
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://lending.example.com}
+
+ocr:
+  provider: http
+  server-url: https://ocr.internal.example.com
+
+slm:
+  endpoint-url: https://slm.internal.example.com/api/generate
+  model-name: llama3.1:70b
+  timeout-seconds: 300
+  options:
+    temperature: 0.0
+    num-predict: 2048

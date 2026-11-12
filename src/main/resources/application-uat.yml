@@ -1,0 +1,15 @@
+# UAT environment overrides — loaded automatically when spring.profiles.active=uat
+# All values here override the common settings in application.yml.
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://lending-uat.example.com}
+
+ocr:
+  provider: http
+  server-url: https://ocr-uat.example.com
+
+slm:
+  endpoint-url: https://slm-uat.example.com/api/generate
+  model-name: llama3.1:8b
+  timeout-seconds: 180

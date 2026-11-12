@@ -1,0 +1,122 @@
+<div class="page">
+  <header>
+    <h1>Lending Automation — KYC Underwriting</h1>
+    <p>Upload the loan application form and a verification document (e.g. paystub) to run automated discrepancy analysis.</p>
+  </header>
+
+  <section class="upload-card">
+    <div class="upload-grid">
+      <label class="upload-box">
+        <span class="upload-label">Loan Application Form</span>
+        <input type="file" accept="image/*,.pdf" (change)="onFileSelected($event, 'app')" />
+        <span class="file-name">{{ applicationForm?.name ?? 'No file chosen' }}</span>
+      </label>
+
+      <label class="upload-box">
+        <span class="upload-label">Verification Document (Paystub / ID)</span>
+        <input type="file" accept="image/*,.pdf" (change)="onFileSelected($event, 'ver')" />
+        <span class="file-name">{{ verificationDoc?.name ?? 'No file chosen' }}</span>
+      </label>
+    </div>
+
+    <button class="submit-btn" (click)="submit()" [disabled]="loading()">
+      {{ loading() ? 'Analyzing…' : 'Run Underwriting' }}
+    </button>
+
+    @if (error()) {
+      <div class="error-banner">{{ error() }}</div>
+    }
+  </section>
+
+  @if (loading()) {
+    <div class="loading-note">
+      OCR extraction and SLM analysis in progress — this can take a minute…
+      <span class="elapsed">Elapsed: {{ formatElapsed(elapsedMs()) }}</span>
+    </div>
+  }
+
+  @if (report(); as r) {
+    <section class="report-card">
+      <div class="report-header">
+        <h2>Underwriting Report</h2>
+        <span class="action-badge" [class]="'action-badge ' + actionClass(r.underwritingAction)">
+          {{ r.underwritingAction }}
+        </span>
+      </div>
+      <p class="app-id">Application ID: <strong>{{ r.applicationId }}</strong></p>
+      @if (elapsedMs() !== null) {
+        <p class="elapsed-final">Processing completed in <strong>{{ formatElapsed(elapsedMs()) }}</strong></p>
+      }
+
+      <div class="field-grid">
+        <div class="field-card">
+          <h3>Applicant Name</h3>
+          <p>Form: {{ r.applicantName?.formValue }}</p>
+          <p>Doc: {{ r.applicantName?.docValue }}</p>
+          <span class="status-badge" [class]="'status-badge ' + statusClass(r.applicantName?.status)">
+            {{ r.applicantName?.status }}
+          </span>
+        </div>
+
+        <div class="field-card">
+          <h3>Employer</h3>
+          <p>Form: {{ r.employerValidation?.formValue }}</p>
+          <p>Doc: {{ r.employerValidation?.docValue }}</p>
+          <span class="status-badge" [class]="'status-badge ' + statusClass(r.employerValidation?.status)">
+            {{ r.employerValidation?.status }}
+          </span>
+        </div>
+
+        <div class="field-card wide">
+          <h3>Income Validation</h3>
+          <p>Stated: ${{ r.incomeValidation?.statedIncome }} &nbsp;|&nbsp; Verified: ${{ r.incomeValidation?.verifiedIncome }}</p>
+          <p>Variance: {{ r.incomeValidation?.variancePercentage }}%</p>
+          <span class="status-badge" [class]="'status-badge ' + statusClass(r.incomeValidation?.status)">
+            {{ r.incomeValidation?.status }}
+          </span>
+        </div>
+
+        <div class="field-card">
+          <h3>Address</h3>
+          <p>Form: {{ r.addressValidation?.formValue }}</p>
+          <p>Doc: {{ r.addressValidation?.docValue }}</p>
+          <span class="status-badge" [class]="'status-badge ' + statusClass(r.addressValidation?.status)">
+            {{ r.addressValidation?.status }}
+          </span>
+        </div>
+
+        <div class="field-card">
+          <h3>SSN (Last 4)</h3>
+          <p>Form: {{ r.ssnValidation?.formValue }}</p>
+          <p>Doc: {{ r.ssnValidation?.docValue }}</p>
+          <span class="status-badge" [class]="'status-badge ' + statusClass(r.ssnValidation?.status)">
+            {{ r.ssnValidation?.status }}
+          </span>
+        </div>
+
+        <div class="field-card wide">
+          <h3>Loan Affordability</h3>
+          <p>Requested: ${{ r.loanAffordability?.requestedLoanAmount }} &nbsp;|&nbsp; Verified Income: ${{ r.loanAffordability?.verifiedMonthlyIncome }}/mo</p>
+          <p>Loan-to-Income Ratio: {{ r.loanAffordability?.loanToIncomeRatio }}x (max 5.0x)</p>
+          <span class="status-badge" [class]="'status-badge ' + statusClass(r.loanAffordability?.status)">
+            {{ r.loanAffordability?.status }}
+          </span>
+        </div>
+      </div>
+
+      <h3>Discrepancies Found ({{ r.discrepanciesFound?.length ?? 0 }})</h3>
+      @if (r.discrepanciesFound?.length) {
+        <ul class="discrepancy-list">
+          @for (d of r.discrepanciesFound; track d.field) {
+            <li>
+              <span class="severity" [class.critical]="d.severity === 'CRITICAL'">{{ d.severity }}</span>
+              <strong>{{ d.field }}</strong> — {{ d.description }}
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="no-discrepancies">No discrepancies detected.</p>
+      }
+    </section>
+  }
+</div>

@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: lending-automation-poc
+  profiles:
+    active: local
+
+server:
+  port: 8081
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-no-id}]"
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
+# ---------------------------------------------------------------------------
+# OCR configuration
+# provider: "http"   -> calls a remote OCR microservice (HttpOcrService)
+#           "paddle" -> shells out to a local Python PaddleOCR script
+# ---------------------------------------------------------------------------
+ocr:
+  provider: http
+  server-url: http://127.0.0.1:8000
+  paddle:
+    python-executable: python
+    script-path: scripts/paddle_ocr.py
+
+# ---------------------------------------------------------------------------
+# SLM / LLM configuration (Ollama-compatible /api/generate endpoint)
+# ---------------------------------------------------------------------------
+slm:
+  endpoint-url: http://localhost:11434/api/generate
+  model-name: mistral:latest
+  timeout-seconds: 180
+  options:
+    temperature: 0.0
+    num-predict: 1024
+  prompts:
+    system: >-
+      You are an automated loan underwriting risk assessment agent.
+      Your job is to compare an application form against a verification paystub and find discrepancies.
+      You must output a single valid JSON object matching the exact key signatures requested.
+      Do not include any text before or after the JSON payload. Do not include markdown code block characters.
+      Treat differences in capitalization, spacing, or punctuation as MATCHED.
+      Only mark MISMATCH when the underlying name is genuinely different (e.g., different person or spelling).
+      Example: 'Venugopal Rao' vs 'VenuGopal Rao' is MATCHED because only capitalization differs.
+      Example: 'Venugopal Rao' vs 'VenuGopal. Rao' is MATCHED because only punctuation differs.
+      Example: 'Venugopal Rao' vs 'Rajesh Kumar' is MISMATCH.
+      For addressValidation compare the applicant address on the form against the employee address on the paystub; ignore formatting differences (abbreviations, punctuation, capitalization) but flag genuinely different street, city, or ZIP.
+      For ssnValidation compare only the last 4 digits of the SSN shown on each document.
+      For loanAffordability compute loanToIncomeRatio = requestedLoanAmount / verifiedMonthlyIncome (use verifiedIncome from incomeValidation). Status is MISMATCH when the ratio exceeds 5.0 (borrower cannot reasonably service the loan), otherwise MATCHED.
+      Any MISMATCH in name, SSN, or affordability should result in underwritingAction HOLD or REJECT; APPROVE only when all validations are MATCHED.
+    user-template: |
+      SCHEMA REQUIRED:
+      {
+        "applicationId": "string",
+        "applicantName": {"formValue":"string","docValue":"string","status":"MATCHED|MISMATCH"},
+        "incomeValidation": {"statedIncome":0.0,"verifiedIncome":0.0,"status":"MATCHED|MISMATCH","variancePercentage":0.0},
+        "employerValidation": {"formValue":"string","docValue":"string","status":"MATCHED|MISMATCH"},
+        "addressValidation": {"formValue":"string","docValue":"string","status":"MATCHED|MISMATCH"},
+        "ssnValidation": {"formValue":"string","docValue":"string","status":"MATCHED|MISMATCH"},
+        "loanAffordability": {"requestedLoanAmount":0.0,"verifiedMonthlyIncome":0.0,"loanToIncomeRatio":0.0,"status":"MATCHED|MISMATCH"},
+        "discrepanciesFound": [{"field":"string","severity":"CRITICAL|WARNING","description":"string"}],
+        "underwritingAction": "APPROVE|REJECT|HOLD"
+      }
+
+      APPLICATION FORM LINES:
+      %s
+
+      VERIFICATION DOCUMENT LINES:
+      %s
